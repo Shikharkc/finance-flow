@@ -1,0 +1,33 @@
+rules_version = '2';
+
+// Firebase Storage Security Rules
+service firebase.storage {
+  match /b/{bucket}/o {
+    // Helper function to check if user is authenticated
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    // Helper function to check if user owns the file path
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+    
+    // Users can only upload/read/delete files in their own directory
+    match /users/{userId}/{allPaths=**} {
+      // Allow read if user owns the file
+      allow read: if isOwner(userId);
+      
+      // Allow write (create/update) if user owns the path and file size is under 10MB
+      allow write: if isOwner(userId) && request.resource.size < 10 * 1024 * 1024;
+      
+      // Allow delete if user owns the file
+      allow delete: if isOwner(userId);
+    }
+    
+    // Deny all other access by default
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}
